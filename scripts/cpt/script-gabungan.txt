@@ -1,0 +1,447 @@
+================================================================================
+           SKRIP KONFIGURASI ROUTER CISCO PACKET TRACER (VLSM)
+           KELOMPOK : K-43 (Prefix IP 10.85.0.0/16)
+           METODE   : VLSM + Summarized Static Routing
+================================================================================
+
+--------------------------------------------------------------------------------
+1. ROUTER CYBERIA
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Cyberia
+
+interface FastEthernet0/0
+ ip address 10.85.16.57 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.14.1 255.255.255.128
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ no ip address
+ no shutdown
+ exit
+
+ip route 10.85.0.0 255.255.224.0 10.85.16.58
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+2. ROUTER WIRED
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Wired
+
+interface FastEthernet0/0
+ ip address 10.85.16.58 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.16.69 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.16.33 255.255.255.248
+ no shutdown
+ exit
+
+interface FastEthernet0/3/0
+ switchport mode access
+ no shutdown
+ exit
+
+interface Vlan1
+ ip address 10.85.16.65 255.255.255.252
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.57
+ip route 10.85.0.0 255.255.252.0 10.85.16.34
+ip route 10.85.4.0 255.255.252.0 10.85.16.36
+ip route 10.85.8.0 255.255.254.0 10.85.16.35
+ip route 10.85.10.0 255.255.254.0 10.85.16.70
+ip route 10.85.12.0 255.255.254.0 10.85.16.66
+ip route 10.85.14.128 255.255.255.128 10.85.16.70
+ip route 10.85.15.0 255.255.255.192 10.85.16.70
+ip route 10.85.15.64 255.255.255.192 10.85.16.66
+ip route 10.85.15.128 255.255.255.192 10.85.16.70
+ip route 10.85.15.192 255.255.255.192 10.85.16.35
+ip route 10.85.16.0 255.255.255.224 10.85.16.70
+ip route 10.85.16.40 255.255.255.248 10.85.16.36
+ip route 10.85.16.48 255.255.255.248 10.85.16.70
+ip route 10.85.16.60 255.255.255.252 10.85.16.36
+ip route 10.85.16.72 255.255.255.248 10.85.16.70
+ip route 10.85.16.80 255.255.255.248 10.85.16.70
+ip route 10.85.16.88 255.255.255.252 10.85.16.70
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+3. ROUTER PSYCHE
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Psyche
+
+interface FastEthernet0/0
+ ip address 10.85.16.34 255.255.255.248
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.0.1 255.255.252.0
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ no ip address
+ shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.33
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+4. ROUTER COPLAND
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Copland
+
+interface FastEthernet0/0
+ ip address 10.85.16.35 255.255.255.248
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.8.1 255.255.254.0
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.15.193 255.255.255.192
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.33
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+5. ROUTER SCHUMANN
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Schumann
+
+interface FastEthernet0/0
+ ip address 10.85.16.36 255.255.255.248
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.16.61 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.16.41 255.255.255.248
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.33
+ip route 10.85.4.0 255.255.252.0 10.85.16.62
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+6. ROUTER ACCELA
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Accela
+
+interface FastEthernet0/0
+ ip address 10.85.16.62 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.4.1 255.255.252.0
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ no ip address
+ shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.61
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+7. ROUTER NAVI
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Navi
+
+interface FastEthernet0/0
+ ip address 10.85.16.66 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.15.65 255.255.255.192
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.12.1 255.255.255.0
+ no shutdown
+ exit
+
+interface FastEthernet0/3/0
+ switchport mode access
+ no shutdown
+ exit
+
+interface Vlan1
+ ip address 10.85.13.1 255.255.255.0
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.65
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+8. ROUTER TACHIBANA
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Tachibana
+
+interface FastEthernet0/0
+ ip address 10.85.16.70 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.16.73 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.10.1 255.255.254.0
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.69
+ip route 10.85.14.128 255.255.255.128 10.85.16.74
+ip route 10.85.15.0 255.255.255.192 10.85.16.74
+ip route 10.85.15.128 255.255.255.192 10.85.16.74
+ip route 10.85.16.0 255.255.255.224 10.85.16.74
+ip route 10.85.16.48 255.255.255.248 10.85.16.74
+ip route 10.85.16.76 255.255.255.252 10.85.16.74
+ip route 10.85.16.80 255.255.255.248 10.85.16.74
+ip route 10.85.16.88 255.255.255.252 10.85.16.74
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+9. ROUTER DEUS
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Deus
+
+interface FastEthernet0/0
+ ip address 10.85.16.74 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.16.77 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.14.129 255.255.255.128
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.73
+ip route 10.85.15.0 255.255.255.192 10.85.16.78
+ip route 10.85.15.128 255.255.255.192 10.85.16.78
+ip route 10.85.16.0 255.255.255.224 10.85.16.78
+ip route 10.85.16.48 255.255.255.248 10.85.16.78
+ip route 10.85.16.80 255.255.255.248 10.85.16.78
+ip route 10.85.16.88 255.255.255.252 10.85.16.78
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+10. ROUTER PROTOCOL7
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Protocol7
+
+interface FastEthernet0/0
+ ip address 10.85.16.78 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.16.81 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.15.129 255.255.255.192
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.77
+ip route 10.85.15.0 255.255.255.192 10.85.16.82
+ip route 10.85.16.0 255.255.255.224 10.85.16.82
+ip route 10.85.16.48 255.255.255.248 10.85.16.82
+ip route 10.85.16.84 255.255.255.252 10.85.16.82
+ip route 10.85.16.88 255.255.255.252 10.85.16.82
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+11. ROUTER KNIGHTS
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Knights
+
+interface FastEthernet0/0
+ ip address 10.85.16.82 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.16.85 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.16.49 255.255.255.248
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.81
+ip route 10.85.15.0 255.255.255.192 10.85.16.86
+ip route 10.85.16.0 255.255.255.224 10.85.16.86
+ip route 10.85.16.88 255.255.255.252 10.85.16.86
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+12. ROUTER PHANTOMA
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Phantoma
+
+interface FastEthernet0/0
+ ip address 10.85.16.86 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.16.89 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.16.1 255.255.255.224
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.85
+ip route 10.85.15.0 255.255.255.192 10.85.16.90
+
+end
+write memory
+
+--------------------------------------------------------------------------------
+13. ROUTER SHIBUYA
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Shibuya
+
+interface FastEthernet0/0
+ ip address 10.85.16.90 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.15.1 255.255.255.192
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ no ip address
+ shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.89
+
+end
+write memory
+
+================================================================================
+                    DAFTAR IP CLIENT / HOST STATIC (25 NODE)
+================================================================================
+- JJ            : IP 10.85.14.2      | Mask 255.255.255.128 (/25) | GW 10.85.14.1
+- MyuMyu        : IP 10.85.14.3      | Mask 255.255.255.128 (/25) | GW 10.85.14.1
+- Karl          : IP 10.85.0.2       | Mask 255.255.252.0   (/22) | GW 10.85.0.1
+- Lin           : IP 10.85.0.3       | Mask 255.255.252.0   (/22) | GW 10.85.0.1
+- Juri          : IP 10.85.15.194    | Mask 255.255.255.192 (/26) | GW 10.85.15.193
+- Masayuki      : IP 10.85.8.2       | Mask 255.255.254.0   (/23) | GW 10.85.8.1
+- Akashic       : IP 10.85.16.42     | Mask 255.255.255.248 (/29) | GW 10.85.16.41
+- Omnipresence  : IP 10.85.4.2       | Mask 255.255.252.0   (/22) | GW 10.85.4.1
+- Denpa         : IP 10.85.4.3       | Mask 255.255.252.0   (/22) | GW 10.85.4.1
+- Alice         : IP 10.85.12.2      | Mask 255.255.255.0   (/24) | GW 10.85.12.1
+- Reika         : IP 10.85.12.3      | Mask 255.255.255.0   (/24) | GW 10.85.12.1
+- Taro          : IP 10.85.15.66     | Mask 255.255.255.192 (/26) | GW 10.85.15.65
+- Yasuo         : IP 10.85.13.2      | Mask 255.255.255.0   (/24) | GW 10.85.13.1
+- Miho          : IP 10.85.13.3      | Mask 255.255.255.0   (/24) | GW 10.85.13.1
+- Kuma          : IP 10.85.13.4      | Mask 255.255.255.0   (/24) | GW 10.85.13.1
+- Collective    : IP 10.85.10.2      | Mask 255.255.254.0   (/23) | GW 10.85.10.1
+- Ghost         : IP 10.85.10.3      | Mask 255.255.254.0   (/23) | GW 10.85.10.1
+- Lilith        : IP 10.85.14.130    | Mask 255.255.255.128 (/25) | GW 10.85.14.129
+- Specter       : IP 10.85.14.131    | Mask 255.255.255.128 (/25) | GW 10.85.14.129
+- Chisa         : IP 10.85.15.130    | Mask 255.255.255.192 (/26) | GW 10.85.15.129
+- Hodgeson      : IP 10.85.15.131    | Mask 255.255.255.192 (/26) | GW 10.85.15.129
+- Eiri          : IP 10.85.16.50     | Mask 255.255.255.248 (/29) | GW 10.85.16.49
+- Semi          : IP 10.85.16.2      | Mask 255.255.255.224 (/27) | GW 10.85.16.1
+- Lain          : IP 10.85.15.2      | Mask 255.255.255.192 (/26) | GW 10.85.15.1
+- Mika          : IP 10.85.15.3      | Mask 255.255.255.192 (/26) | GW 10.85.15.1
+================================================================================

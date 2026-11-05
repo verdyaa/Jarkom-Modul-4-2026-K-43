@@ -1,0 +1,50 @@
+enable
+configure terminal
+hostname Wired
+
+interface FastEthernet0/0
+ ip address 10.85.16.58 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.16.69 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.16.33 255.255.255.248
+ no shutdown
+ exit
+
+interface FastEthernet0/3/0
+ switchport mode access
+ no shutdown
+ exit
+
+interface Vlan1
+ ip address 10.85.16.65 255.255.255.252
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.57
+ip route 10.85.0.0 255.255.252.0 10.85.16.34
+ip route 10.85.4.0 255.255.252.0 10.85.16.36
+ip route 10.85.8.0 255.255.254.0 10.85.16.35
+ip route 10.85.10.0 255.255.254.0 10.85.16.70
+ip route 10.85.12.0 255.255.254.0 10.85.16.66
+ip route 10.85.14.128 255.255.255.128 10.85.16.70
+ip route 10.85.15.0 255.255.255.192 10.85.16.70
+ip route 10.85.15.64 255.255.255.192 10.85.16.66
+ip route 10.85.15.128 255.255.255.192 10.85.16.70
+ip route 10.85.15.192 255.255.255.192 10.85.16.35
+ip route 10.85.16.0 255.255.255.224 10.85.16.70
+ip route 10.85.16.40 255.255.255.248 10.85.16.36
+ip route 10.85.16.48 255.255.255.248 10.85.16.70
+ip route 10.85.16.60 255.255.255.252 10.85.16.36
+ip route 10.85.16.72 255.255.255.248 10.85.16.70
+ip route 10.85.16.80 255.255.255.248 10.85.16.70
+ip route 10.85.16.88 255.255.255.252 10.85.16.70
+
+end
+write memory

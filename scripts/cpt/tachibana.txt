@@ -1,0 +1,31 @@
+enable
+configure terminal
+hostname Tachibana
+
+interface FastEthernet0/0
+ ip address 10.85.16.70 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet0/1
+ ip address 10.85.16.73 255.255.255.252
+ no shutdown
+ exit
+
+interface FastEthernet1/0
+ ip address 10.85.10.1 255.255.254.0
+ no shutdown
+ exit
+
+ip route 0.0.0.0 0.0.0.0 10.85.16.69
+ip route 10.85.14.128 255.255.255.128 10.85.16.74
+ip route 10.85.15.0 255.255.255.192 10.85.16.74
+ip route 10.85.15.128 255.255.255.192 10.85.16.74
+ip route 10.85.16.0 255.255.255.224 10.85.16.74
+ip route 10.85.16.48 255.255.255.248 10.85.16.74
+ip route 10.85.16.76 255.255.255.252 10.85.16.74
+ip route 10.85.16.80 255.255.255.248 10.85.16.74
+ip route 10.85.16.88 255.255.255.252 10.85.16.74
+
+end
+write memory
