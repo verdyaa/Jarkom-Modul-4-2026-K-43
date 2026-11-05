@@ -1,0 +1,251 @@
+================================================================================
+           SKRIP KONFIGURASI ROUTER CISCO PACKET TRACER
+           IP BLOCK: 10.85.0.0/16 (Prefix x = 85)
+           METODE SUBNETING : VLSM
+           PENERAPAN : CISCO PACKET TRACER
+================================================================================
+
+--------------------------------------------------------------------------------
+1. ROUTER CYBERIA
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Cyberia
+
+! Interface ke Switch0 (Subnet JJ /25 & Subnet MyuMyu /27)
+interface FastEthernet0/1
+ ip address 10.85.13.126 255.255.255.128
+ ip address 10.85.14.254 255.255.255.224 secondary
+ no shutdown
+ exit
+
+! Interface P2P ke Router Psyche (Subnet P2P 4 /30)
+interface FastEthernet0/0
+ ip address 10.85.148.1 255.255.255.252
+ no shutdown
+ exit
+
+! Interface P2P ke Router Tachibana (Subnet P2P 5 /30)
+interface FastEthernet1/0
+ ip address 10.85.15.153 255.255.255.252
+ no shutdown
+ exit
+
+! Routing Protocol (RIPv2 / OSPF)
+router rip
+ version 2
+ network 10.0.0.0
+ no auto-summary
+ exit
+end
+write memory
+
+
+--------------------------------------------------------------------------------
+2. ROUTER TACHIBANA
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Tachibana
+
+! Interface ke Subnet Yasuo (/24)
+interface FastEthernet0/0
+ ip address 10.85.12.1 255.255.255.0
+ no shutdown
+ exit
+
+! Interface ke Subnet Ghost (/29) & Collective (/23) via Switch
+interface FastEthernet0/1
+ ip address 10.85.15.102 255.255.255.248
+ ip address 10.85.9.254 255.255.254.0 secondary
+ no shutdown
+ exit
+
+! Interface P2P ke Router Cyberia (Subnet P2P 5 /30)
+interface FastEthernet0/3/0
+ ip address 10.85.15.154 255.255.255.252
+ no shutdown
+ exit
+
+! Interface P2P ke Router Deus (Subnet P2P 7 /30)
+interface FastEthernet1/0
+ ip address 10.85.15.161 255.255.255.252
+ no shutdown
+ exit
+
+! Routing Protocol
+router rip
+ version 2
+ network 10.0.0.0
+ no auto-summary
+ exit
+end
+write memory
+
+
+--------------------------------------------------------------------------------
+3. ROUTER DEUS
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Deus
+
+! Interface ke Subnet Lilih (/25) & Specter (/27)
+interface FastEthernet0/0
+ ip address 10.85.13.254 255.255.255.128
+ ip address 10.85.15.62 255.255.255.224 secondary
+ no shutdown
+ exit
+
+! Interface P2P ke Router Tachibana (Subnet P2P 7 /30)
+interface FastEthernet0/3/0
+ ip address 10.85.15.162 255.255.255.252
+ no shutdown
+ exit
+
+! Interface P2P ke Router Protocol7 (Subnet P2P 6 /30)
+interface FastEthernet0/1
+ ip address 10.85.15.157 255.255.255.252
+ no shutdown
+ exit
+
+! Routing Protocol
+router rip
+ version 2
+ network 10.0.0.0
+ no auto-summary
+ exit
+end
+write memory
+
+
+--------------------------------------------------------------------------------
+4. ROUTER PROTOCOL7
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Protocol7
+
+! Interface ke Subnet Chika (/27) & Hodgeson (/28)
+interface FastEthernet0/0
+ ip address 10.85.15.30 255.255.255.224
+ ip address 10.85.15.94 255.255.255.240 secondary
+ no shutdown
+ exit
+
+! Interface P2P ke Router Deus (Subnet P2P 6 /30)
+interface FastEthernet1/0
+ ip address 10.85.15.158 255.255.255.252
+ no shutdown
+ exit
+
+! Interface P2P ke Router Knights (Subnet P2P 8 /30)
+interface FastEthernet0/1
+ ip address 10.85.15.165 255.255.255.252
+ no shutdown
+ exit
+
+! Routing Protocol
+router rip
+ version 2
+ network 10.0.0.0
+ no auto-summary
+ exit
+end
+write memory
+
+
+--------------------------------------------------------------------------------
+5. ROUTER KNIGHTS
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Knights
+
+! Interface P2P ke Router Protocol7 (Subnet P2P 8 /30)
+interface FastEthernet0/0
+ ip address 10.85.15.166 255.255.255.252
+ no shutdown
+ exit
+
+! Interface P2P ke Router Phantoma (Subnet P2P 9 /30)
+interface FastEthernet0/1
+ ip address 10.85.15.169 255.255.255.252
+ no shutdown
+ exit
+
+! Interface ke Subnet Eiri (/30)
+interface FastEthernet1/0
+ ip address 10.85.15.130 255.255.255.252
+ no shutdown
+ exit
+
+! Routing Protocol
+router rip
+ version 2
+ network 10.0.0.0
+ no auto-summary
+ exit
+end
+write memory
+
+
+--------------------------------------------------------------------------------
+6. ROUTER PHANTOMA
+--------------------------------------------------------------------------------
+enable
+configure terminal
+hostname Phantoma
+
+! Interface ke Subnet Mihsi (/28) & Kuma (/29)
+interface FastEthernet0/0
+ ip address 10.85.15.78 255.255.255.240
+ ip address 10.85.15.110 255.255.255.248 secondary
+ no shutdown
+ exit
+
+! Interface P2P ke Router Knights (Subnet P2P 9 /30)
+interface FastEthernet0/1
+ ip address 10.85.15.170 255.255.255.252
+ no shutdown
+ exit
+
+! Interface ke Router Shibuya
+interface FastEthernet1/0
+ ip address 10.85.15.133 255.255.255.252
+ no shutdown
+ exit
+
+! Routing Protocol
+router rip
+ version 2
+ network 10.0.0.0
+ no auto-summary
+ exit
+end
+write memory
+
+
+================================------------------------------------------------
+                    INFORMASI IP CLIENT / HOST STATIC
+================================------------------------------------------------
+1. PC JJ:
+   - IP Address : 10.85.13.1
+   - Netmask    : 255.255.255.128 (/25)
+   - Gateway    : 10.85.13.126
+
+2. Laptop MyuMyu:
+   - IP Address : 10.85.14.225
+   - Netmask    : 255.255.255.224 (/27)
+   - Gateway    : 10.85.14.254
+
+3. PC Ghost:
+   - IP Address : 10.85.15.97
+   - Netmask    : 255.255.255.248 (/29)
+   - Gateway    : 10.85.15.102
+
+4. Server Akashic:
+   - IP Address : 10.85.15.125
+   - Netmask    : 255.255.255.252 (/30)
+   - Gateway    : 10.85.15.126
+================================================================================
