@@ -33,6 +33,7 @@ Arsitektur **The Wired Expansion** merepresentasikan jaringan berskala besar yan
 | `VLSM.pkt` | Implementasi topologi dan static routing metode **VLSM** pada Cisco Packet Tracer |
 | `K-43-MODUL-4.gns3project` | Implementasi topologi dan hierarchical routing metode **CIDR** pada GNS3 (`ardhptr21/alpinet:latest`) |
 | `Images/pohon-cidr.png` | Diagram pohon biner penggabungan bottom-up dan pembagian top-down alamat IP CIDR (`10.85.0.0/17`) |
+| `Images/topologi-subnet-cidr.png` | Peta visual batas ke-25 segmen subnet (`A1`–`A25`) beserta blok IP CIDR pada topologi GNS3 |
 | `scripts/*.sh`, `scripts/*.py` | Skrip inisialisasi persisten `/root/init.sh` per-node GNS3 beserta skrip otomasi dan pengujian konektivitas |
 | `scripts/cpt/*.txt` | Skrip konfigurasi CLI Cisco IOS per-router serta gabungan (`script-gabungan.txt`) untuk Cisco Packet Tracer |
 
@@ -459,6 +460,9 @@ Setelah akar pohon ditemukan pada **`H1 = 10.85.0.0/17`**, pengisian alamat IP p
 ---
 
 ## Step 5: Penugasan IP, Source NAT, & Persistensi Konfigurasi Node pada GNS3 (`K-43-MODUL-4.gns3project`)
+
+![Peta Pembagian 25 Subnet pada Topologi GNS3](./Images/topologi-subnet-cidr.png)
+*Gambar 5.1: Peta pembagian 25 segmen subnet (`A1`–`A25`) pada topologi GNS3 — segmen LAN Client/Server (biru & hijau), segmen transit bersama `Switch2` (`A3`, kuning), link Point-to-Point antar-router `/30` (merah), dan gerbang `WAN` (`NAT1`).*
 
 ### Aturan Penugasan IP dari Sheet `Pembagian IP - CIDR` ke Antarmuka Node
 Seluruh **13 router** dan **25 host client/server** pada GNS3 dijalankan menggunakan container Docker berbasis Alpine Linux (**`ardhptr21/alpinet:latest`**), sedangkan **13 switch** menggunakan *built-in Ethernet Switch* Layer-2 GNS3. Pemetaan kolom `Range Usable IP` pada Sheet 4 ke masing-masing port `eth0`–`eth3` mengikuti konvensi konsisten:
