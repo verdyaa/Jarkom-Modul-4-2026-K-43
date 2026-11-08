@@ -299,27 +299,40 @@ write memory
 | **A25** | `Lain` / `Mika` | `10.85.15.2` / `10.85.15.3` | `255.255.255.192` (`/26`) | `10.85.15.1` |
 
 ### Pengujian & Pembuktian VLSM pada Cisco Packet Tracer
-Setelah topologi dibuka pada Cisco Packet Tracer (dan konvergensi Spanning-Tree dipercepat menggunakan tombol *Fast Forward Time* selama 30 detik agar SVI `Vlan1` pada `Wired` serta `Navi` beralih ke status *Forwarding*), pemeriksaan antarmuka, tabel routing, dan uji *end-to-end* dijalankan pada CLI router dan *Command Prompt* host:
+Setelah topologi dibuka pada Cisco Packet Tracer (dan konvergensi Spanning-Tree dipercepat menggunakan tombol *Fast Forward Time* selama 30 detik agar SVI `Vlan1` pada `Wired` serta `Navi` beralih ke status *Forwarding*), verifikasi dijalankan mencakup pemeriksaan tabel routing serta empat skenario arah trafik (*PC-ke-PC*, *PC-ke-Router*, *Router-ke-PC*, dan arah gerbang eksternal):
 
 ```text
-! Pemeriksaan ringkasan interface & rute supernet di CLI Router Cyberia & Wired
+! 1. Pemeriksaan antarmuka & rute supernet/summarization di CLI Router
 Cyberia# show ip interface brief
 Cyberia# show ip route static
-
 Wired# show ip interface brief
 Wired# show ip route static
 
-! Pengujian konektivitas lintas cabang dari Command Prompt Laptop Lain (10.85.15.2)
+! 2. Uji PC ke PC (Desktop -> Command Prompt pada Laptop Lain 10.85.15.2, atau GUI Add Simple PDU [P])
 C:\> ipconfig
-C:\> ping 10.85.14.2       (uji ke JJ - segmen Cyberia A1)
-C:\> ping 10.85.0.2        (uji ke Karl - cabang Psyche A4)
-C:\> ping 10.85.4.3        (uji ke Denpa - cabang Accela A9)
-C:\> ping 10.85.13.4       (uji ke Kuma - cabang Navi Vlan1 A13)
-C:\> tracert 10.85.0.2     (penelusuran 9 hop dari Shibuya menuju Karl)
+C:\> ping 10.85.15.3       (PC ke PC satu subnet / Intra-LAN Switch13 -> Mika A25)
+C:\> ping 10.85.14.2       (PC ke PC lintas cabang -> JJ segmen Cyberia A1)
+C:\> ping 10.85.0.2        (PC ke PC terjauh 9 hop -> Server Karl cabang Psyche A4)
+C:\> ping 10.85.4.3        (PC ke PC lintas cabang -> Denpa cabang Accela A9)
+C:\> ping 10.85.13.4       (PC ke PC lintas SVI Vlan1 -> Server Kuma cabang Navi A13)
+C:\> tracert 10.85.0.2     (penelusuran 9 hop penuh dari Lain menuju Karl)
+
+! 3. Uji PC ke Router (dari Command Prompt Laptop Lain 10.85.15.2 ke Gateway & Router Jauh)
+C:\> ping 10.85.15.1       (PC ke Default Gateway lokal -> Shibuya Fa0/1)
+C:\> ping 10.85.16.33      (PC ke Router Hub tengah -> Wired Fa1/0)
+C:\> ping 10.85.14.1       (PC ke Router Pusat -> Cyberia Fa0/1)
+
+! 4. Uji Router ke PC (dari CLI Cisco IOS pada Cyberia & Wired menuju Host Ujung)
+Cyberia# ping 10.85.15.2                      (Router Cyberia -> Laptop Lain via rute supernet /19)
+Cyberia# ping 10.85.15.2 source 10.85.14.1    (Extended ping dengan source IP gateway A1 -> Lain)
+Wired# ping 10.85.0.2                         (Router Wired -> Server Karl di cabang Psyche)
+Wired# traceroute 10.85.15.2                  (penelusuran jalur turun dari Wired ke Lain)
 ```
 
 **Penjelasan:**
-Perintah `show ip route static` pada `Cyberia` membuktikan seluruh subnet di belakang `Wired` terjangkau hanya dengan satu rute `S 10.85.0.0/19 [1/0] via 10.85.16.58`, sedangkan `tracert 10.85.0.2` dari `Lain` membuktikan paket melintasi `10.85.15.1` (`Shibuya`) $\to$ `10.85.16.89` (`Phantoma`) $\to$ `10.85.16.85` (`Knights`) $\to$ `10.85.16.81` (`Protocol7`) $\to$ `10.85.16.77` (`Deus`) $\to$ `10.85.16.73` (`Tachibana`) $\to$ `10.85.16.69` (`Wired`) $\to$ `10.85.16.34` (`Psyche`) $\to$ `10.85.0.2` (`Karl`) tanpa adanya *routing loop*.
+- **PC ke PC & Resolusi ARP**: Pengujian baik via perintah `ping` maupun *Add Simple PDU (`P`)* membuktikan konektivitas Layer-2 lokal (`Lain` $\to$ `Mika`) dan Layer-3 lintas cabang (`Lain` $\to$ `Karl`). Pada percobaan pertama kali ke subnet yang belum pernah diakses, paket pertama wajar mengalami *Request timed out* sesaat karena setiap router di sepanjang jalur melakukan broadcast **ARP Request** untuk memetakan MAC Address *next-hop*; paket kedua dan seterusnya langsung menghasilkan `Reply` (`0% loss` / status PDU `Successful`).
+- **PC ke Router & Router ke PC**: Perintah `ping 10.85.15.2 source 10.85.14.1` pada `Cyberia` membuktikan paket dari antarmuka LAN `A1` berhasil dirutekan turun melalui satu baris supernet `S 10.85.0.0/19 [1/0] via 10.85.16.58`, lalu balasan *Echo Reply* dari `Lain` kembali naik melalui rantai *default route* menuju `Cyberia`. Hasil `tracert 10.85.0.2` dari `Lain` mengonfirmasi urutan 9 hop: `10.85.15.1` (`Shibuya`) $\to$ `10.85.16.89` (`Phantoma`) $\to$ `10.85.16.85` (`Knights`) $\to$ `10.85.16.81` (`Protocol7`) $\to$ `10.85.16.77` (`Deus`) $\to$ `10.85.16.73` (`Tachibana`) $\to$ `10.85.16.69` (`Wired`) $\to$ `10.85.16.34` (`Psyche`) $\to$ `10.85.0.2` (`Karl`).
+- **Batas Gerbang Eksternal (`Cloud0`)**: Pada berkas `VLSM.pkt`, node `Cloud0` merepresentasikan batas WAN eksternal pada soal yang terhubung ke `Cyberia Fa1/0` (`up/up`) dan seluruh 12 router di bawah `Cyberia` telah mengarahkan *default route* `0.0.0.0/0` secara berjenjang ke arah `Cyberia`. Pengujian akses *outside web* sesungguhnya ke jaringan internet publik (ICMP, DNS, dan HTTP/HTTPS melalui *Source NAT*) dibuktikan secara penuh pada implementasi GNS3 di Step 7.
 
 
 ---
@@ -662,34 +675,35 @@ Tabel routing `Wired` merangkum kelima cabang besar menggunakan tepat lima rute 
 
 ---
 
-### 3. Pengujian Konektivitas Lintas Cabang, Penelusuran 9-Hop, & Akses Internet dari `Lain` dan `Karl`
-Pengujian *end-to-end* dieksekusi dari konsol host lapisan terdalam **`Lain`** (`10.85.0.66/26` pada `Switch13` di belakang `Shibuya`) menuju seluruh zona topologi serta jaringan internet eksternal, diikuti pengujian arah balik dari **`Karl`** (`10.85.60.2/22` di belakang `Psyche`):
+### 3. Matriks Pengujian Empat Arah: PC ke PC, PC ke Router, Router ke PC, & Akses *Outside Web*
+
+#### A. Pengujian PC ke PC (*Host-to-Host*: Intra-Subnet & Lintas Cabang)
+Dijalankan dari konsol host lapisan terdalam **`Lain`** (`10.85.0.66/26` pada `Switch13` di belakang `Shibuya`) menuju rekan satu subnet maupun host di seluruh cabang lainnya, lalu diverifikasi arah baliknya dari **`Karl`** (`10.85.60.2/22` di belakang `Psyche`):
 
 ```sh
 # === Pada Konsol Host LAIN (10.85.0.66/26) ===
 ip -4 addr show dev eth0
 ip route
 
-ping -c 3 10.85.0.65       # Gateway lokal (Shibuya eth1 - A25)
-ping -c 3 10.85.64.2       # JJ (Segmen Cyberia - A1)
-ping -c 3 10.85.60.2       # Karl (Cabang Psyche - A4)
-ping -c 3 10.85.50.2       # Masayuki (Cabang Copland - A6)
-ping -c 3 10.85.36.2       # Omnipresence (Cabang Schumann > Accela - A9)
-ping -c 3 10.85.16.2       # Alice (Cabang Navi Switch6 - A11)
-ping -c 3 10.85.19.4       # Kuma (Cabang Navi Switch8 - A13)
-ping -c 3 10.85.1.10       # Eiri (Rantai Knights - A21)
+# Satu Subnet / Layer-2 (Switch13 - A25)
+ping -c 3 10.85.0.67       # Lain -> Mika (tanpa melewati router)
 
-traceroute -n 10.85.60.2   # Penelusuran hop lengkap dari Shibuya ke Karl
+# Lintas Subnet & Lintas Cabang / Layer-3
+ping -c 3 10.85.64.2       # Lain -> JJ (Segmen Cyberia - A1)
+ping -c 3 10.85.60.2       # Lain -> Karl (Cabang Psyche - A4, jarak terjauh 9 hop)
+ping -c 3 10.85.50.2       # Lain -> Masayuki (Cabang Copland - A6)
+ping -c 3 10.85.36.2       # Lain -> Omnipresence (Cabang Schumann > Accela - A9)
+ping -c 3 10.85.16.2       # Lain -> Alice (Cabang Navi Switch6 - A11)
+ping -c 3 10.85.19.4       # Lain -> Kuma (Cabang Navi Switch8 - A13)
+ping -c 3 10.85.1.10       # Lain -> Eiri (Rantai Knights - A21)
+traceroute -n 10.85.60.2   # Penelusuran 9 hop lengkap dari Lain menuju Karl
 
-ping -c 3 8.8.8.8          # Uji konektivitas Internet via NAT Cyberia
-ping -c 3 google.com       # Uji resolusi DNS & akses domain eksternal
-
-# === Pada Konsol Host KARL (10.85.60.2/22 — Uji Arah Balik) ===
-ping -c 3 10.85.0.66
-traceroute -n 10.85.0.66
+# === Pada Konsol Host KARL (10.85.60.2/22 — Verifikasi Arah Balik) ===
+ping -c 3 10.85.0.66       # Karl -> Lain
+traceroute -n 10.85.0.66   # Penelusuran 9 hop arah balik dari Karl menuju Lain
 ```
 
-**Urutan 9 Hop Aktual pada `traceroute -n 10.85.60.2` (dari `Lain` menuju `Karl`):**
+**Urutan 9 Hop Aktual pada `traceroute -n 10.85.60.2` (`Lain` $\to$ `Karl`):**
 1. `10.85.0.65` (`Shibuya eth1` — Default Gateway `A25`)
 2. `10.85.0.1` (`Phantoma eth2` — Link `A24`)
 3. `10.85.0.129` (`Knights eth2` — Link `A22`)
@@ -700,5 +714,63 @@ traceroute -n 10.85.0.66
 8. `10.85.56.2` (`Psyche eth0` — Segmen `Switch2` `A3`)
 9. `10.85.60.2` (`Karl eth0` — Tujuan Akhir `A4`)
 
+---
+
+#### B. Pengujian PC ke Router (*Host-to-Router*: Gateway Lokal & Router Jauh)
+Dijalankan dari konsol **`Lain`** (`10.85.0.66/26`) untuk memverifikasi keterjangkauan antarmuka Default Gateway lokal maupun antarmuka router transit dan router pusat:
+
+```sh
+# === Pada Konsol Host LAIN (10.85.0.66/26) ===
+ping -c 3 10.85.0.65       # PC Lain -> Default Gateway lokal (Shibuya eth1 - A25)
+ping -c 3 10.85.8.129      # PC Lain -> Antarmuka LAN Router tengah (Deus eth1 - A17)
+ping -c 3 10.85.56.1       # PC Lain -> Antarmuka Switch2 Router Hub (Wired eth1 - A3)
+ping -c 3 10.85.64.1       # PC Lain -> Antarmuka LAN Router Pusat (Cyberia eth1 - A1)
+traceroute -n 10.85.64.1   # Penelusuran 8 hop dari Lain hingga gerbang Cyberia
+```
+
+---
+
+#### C. Pengujian Router ke PC (*Router-to-Host*: Standard Ping & Source-Interface Ping)
+Dijalankan dari konsol router **`Cyberia`** dan **`Wired`** menuju host klien di berbagai ujung cabang untuk membuktikan tabel agregasi CIDR mampu mengantarkan paket dari router langsung ke host sasaran:
+
+```sh
+# === Pada Konsol Router CYBERIA ===
+ping -c 3 10.85.0.66                 # Cyberia -> PC Lain (source otomatis eth2: 10.85.64.129)
+ping -c 3 -I 10.85.64.1 10.85.0.66   # Cyberia (source gateway A1 eth1) -> PC Lain
+ping -c 3 10.85.60.2                 # Cyberia -> Server Karl (Cabang Psyche - A4)
+traceroute -n 10.85.0.66             # Penelusuran agregasi turun: G1 -> E1 -> D1 -> C1 -> A25
+
+# === Pada Konsol Router WIRED ===
+ping -c 3 10.85.0.66                 # Wired -> PC Lain (via rute agregat E1 10.85.0.0/20)
+ping -c 3 10.85.36.2                 # Wired -> PC Omnipresence (via rute agregat C4 10.85.32.0/20)
+ping -c 3 10.85.19.4                 # Wired -> Server Kuma (via rute agregat C3 10.85.16.0/22)
+```
+
+---
+
+#### D. Pengujian Akses ke Jaringan Eksternal & *Outside Web* (ICMP, DNS, & HTTP/HTTPS)
+Dijalankan dari konsol PC lapisan terdalam **`Lain`** (`10.85.0.66/26`) maupun dari konsol router internal (seperti **`Wired`**) untuk membuktikan seluruh perangkat di dalam supernet `10.85.0.0/17` dapat mengakses internet dan layanan web eksternal melalui *Source NAT* (`MASQUERADE`) pada `Cyberia`:
+
+```sh
+# === Pada Konsol Host LAIN (10.85.0.66/26) atau Router Internal (mis. Wired) ===
+
+# 1. Uji konektivitas Layer-3 menuju IP publik eksternal
+ping -c 3 1.1.1.1
+ping -c 3 8.8.8.8
+
+# 2. Uji resolusi DNS domain eksternal menggunakan nameserver /etc/resolv.conf
+nslookup example.com
+ping -c 3 google.com
+
+# 3. Uji akses protokol web HTTP/HTTPS (Layer-7 Application) ke Outside Web
+curl -I http://example.com
+curl -IL https://google.com
+wget -qO- http://example.com | head -n 15
+
+# === Verifikasi penghitung paket NAT pada Konsol Router CYBERIA ===
+iptables -t nat -L POSTROUTING -n -v
+```
+
 **Penjelasan:**
-Seluruh pengujian `ping` menghasilkan **`0% packet loss`** baik antar-subnet terjauh (`Lain` $\leftrightarrow$ `Karl` melewati 8 router dan 9 segmen jaringan) maupun menuju `8.8.8.8` dan `google.com`. Penelusuran `traceroute -n` dari kedua arah membuktikan paket naik mengikuti rantai *default route* menuju `Wired`, lalu turun secara presisi mengikuti hirarki *route aggregation* CIDR (`E1` $\to$ `D1` $\to$ `C1` $\to$ `A25`) tanpa satu pun gejala *routing loop* ataupun kebocoran paket. Selain pengujian manual pada konsol, verifikasi otomatis seluruh 38 node Layer-3 juga tersedia melalui skrip `scripts/test_connectivity.py`.
+1. **PC ke PC, PC ke Router, & Router ke PC**: Seluruh skenario `ping` menghasilkan **`0% packet loss`**. Pada uji *Router ke PC* dari `Cyberia`, kernel Linux secara otomatis memilih IP antarmuka keluar `eth2` (`10.85.64.129`) berdasarkan kecocokan rute `10.85.0.0/18`, dan bahkan ketika dipaksa menggunakan alamat sumber `eth1` (`-I 10.85.64.1`), paket tetap kembali dengan utuh karena setiap router hilir memegang *default route* berjenjang menuju `Cyberia`. Penelusuran `traceroute -n` membuktikan paket turun mengikuti hirarki pohon CIDR (`G1` $\to$ `E1` $\to$ `D1` $\to$ `C1` $\to$ `A25`) tanpa *routing loop*.
+2. **Akses *Outside Web* & Translasi Source NAT**: Saat `Lain` (`10.85.0.66`) menjalankan `nslookup`, `curl -I http://example.com` (menghasilkan respons header **`HTTP/1.1 200 OK`**), maupun `wget -qO- http://example.com` (menampilkan dokumen HTML `<title>Example Domain</title>`), paket berjalan melintasi 7 router menuju `Cyberia`. Pada `Cyberia`, aturan `POSTROUTING MASQUERADE` di `eth0` menerjemahkan IP sumber privat `10.85.0.66` menjadi IP WAN `eth0` (`192.168.122.x`) dan mencatat sesi pada tabel *conntrack* kernel (terbukti dari bertambahnya kolom `pkts` dan `bytes` pada `iptables -t nat -L POSTROUTING -n -v`), sehingga respons HTTP/HTTPS dari server web publik kembali tepat hingga ke konsol `Lain`. Verifikasi otomatis seluruh 38 node Layer-3 juga tersedia melalui skrip `scripts/test_connectivity.py`.
