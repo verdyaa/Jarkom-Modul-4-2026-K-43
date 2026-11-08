@@ -442,3 +442,263 @@ Setelah akar pohon ditemukan pada **`H1 = 10.85.0.0/17`**, pengisian alamat IP p
 | **A23** | `Phantoma — Switch12 (Semi)` | `10.85.0.160` | `255.255.255.224` | `/27` | `10.85.0.191` | `10.85.0.161 - 10.85.0.190` |
 | **A24** | `Phantoma — Shibuya` | `10.85.0.0` | `255.255.255.252` | `/30` | `10.85.0.3` | `10.85.0.1 - 10.85.0.2` |
 | **A25** | `Shibuya — Switch13 (Lain, Mika)` | `10.85.0.64` | `255.255.255.192` | `/26` | `10.85.0.127` | `10.85.0.65 - 10.85.0.126` |
+
+---
+
+## Step 5: Penugasan IP, Source NAT, & Persistensi Konfigurasi Node pada GNS3 (`K-43-MODUL-4.gns3project`)
+
+### Aturan Penugasan IP dari Sheet `Pembagian IP - CIDR` ke Antarmuka Node
+Seluruh **13 router** dan **25 host client/server** pada GNS3 dijalankan menggunakan container Docker berbasis Alpine Linux (**`ardhptr21/alpinet:latest`**), sedangkan **13 switch** menggunakan *built-in Ethernet Switch* Layer-2 GNS3. Pemetaan kolom `Range Usable IP` pada Sheet 4 ke masing-masing port `eth0`–`eth3` mengikuti konvensi konsisten:
+
+1. **Antarmuka Hulu (*Upstream*) Router**:
+   - Khusus **`Cyberia`**, `eth0` menghadap gerbang `NAT1` dan memperoleh IP secara dinamis via klien DHCP (`udhcpc -i eth0`).
+   - Pada **12 router lainnya**, `eth0` selalu menjadi port hulu yang mengarah ke router di atasnya (menuju `Cyberia`) dan dipasangi `default via <IP-Upstream>`.
+2. **Segmen Point-to-Point (`/30`) & Transit Bersama `Switch2` (`A3 = 10.85.56.0/29`)**:
+   - Pada link `/30`, **Usable IP pertama** diberikan ke port hilir router hulu, sedangkan **Usable IP kedua** diberikan ke `eth0` router hilir (contoh `A14 = 10.85.12.0/30`: `Wired eth3 = 10.85.12.1/30`, `Tachibana eth0 = 10.85.12.2/30`).
+   - Pada segmen bersama `Switch2` (`A3`), alamat dibagikan berurutan: `Wired eth1 = 10.85.56.1/29`, `Psyche eth0 = 10.85.56.2/29`, `Copland eth0 = 10.85.56.3/29`, dan `Schumann eth0 = 10.85.56.4/29`.
+3. **Segmen LAN Client/Server**:
+   - **Usable IP pertama** pada blok LAN (`.1`, `.9`, `.65`, `.129`, `.161`, atau `.193`) selalu dipasang pada antarmuka router lokal sebagai **Default Gateway**.
+   - **Usable IP kedua dan seterusnya** diberikan secara berurutan pada `eth0` setiap entitas host pada segmen tersebut, disertai rute `default via <IP-Gateway>` dan resolver DNS `1.1.1.1` / `8.8.8.8`.
+
+### Konfigurasi Forwarding, Source NAT (`MASQUERADE`), & Persistensi Container
+Agar container Alpine berfungsi penuh sebagai router dan konfigurasinya tidak hilang ketika project GNS3 dimatikan (*stop*) lalu dinyalakan kembali (*start*), setiap node dibekali mekanisme ganda pada direktori persisten `/etc` dan `/root`:
+1. **IPv4 Packet Forwarding & NAT**: Seluruh 13 router mengaktifkan parameter kernel `sysctl -w net.ipv4.ip_forward=1`. Khusus gerbang utama **`Cyberia`**, seluruh paket dari supernet internal `10.85.0.0/17` yang keluar melalui `eth0` menuju `NAT1` ditranslasikan menggunakan **Source NAT** (`iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE`).
+2. **Persistensi Otomatis (`/root/init.sh`)**: Selain menulis definisi statis pada `/etc/network/interfaces`, setiap node menyimpan skrip eksekusi `/root/init.sh` (disertai cadangan `/root/config.sh`) yang dipanggil otomatis melalui hook `/etc/profile.d/init.sh` dan `/root/.bashrc`. Seluruh skrip pembangkit per-node tersimpan pada direktori `scripts/*.sh`.
+
+**Contoh Konfigurasi `/root/init.sh` pada Gerbang `Cyberia`, Hub `Wired`, & Host `Lain` (`scripts/`):**
+```sh
+#!/bin/sh
+# === /root/init.sh pada Router CYBERIA (scripts/cyberia.sh) ===
+set -e
+echo 'nameserver 1.1.1.1' > /etc/resolv.conf
+echo 'nameserver 8.8.8.8' >> /etc/resolv.conf
+sysctl -w net.ipv4.ip_forward=1
+iptables -t nat -F || true
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+udhcpc -i eth0 -b -p /var/run/udhcpc.eth0.pid || true
+ip addr flush dev eth1 || true
+ip addr add 10.85.64.1/25 dev eth1 || true
+ip link set eth1 up || true
+ip addr flush dev eth2 || true
+ip addr add 10.85.64.129/30 dev eth2 || true
+ip link set eth2 up || true
+ip route replace 10.85.0.0/18 via 10.85.64.130 || true
+```
+
+```sh
+#!/bin/sh
+# === /root/init.sh pada Router WIRED (scripts/wired.sh) ===
+set -e
+sysctl -w net.ipv4.ip_forward=1
+ip addr replace 10.85.64.130/30 dev eth0 && ip link set eth0 up
+ip addr replace 10.85.56.1/29   dev eth1 && ip link set eth1 up
+ip addr replace 10.85.18.1/30   dev eth2 && ip link set eth2 up
+ip addr replace 10.85.12.1/30   dev eth3 && ip link set eth3 up
+ip route replace default       via 10.85.64.129
+ip route replace 10.85.16.0/22 via 10.85.18.2
+ip route replace 10.85.0.0/20  via 10.85.12.2
+ip route replace 10.85.60.0/22 via 10.85.56.2
+ip route replace 10.85.48.0/21 via 10.85.56.3
+ip route replace 10.85.32.0/20 via 10.85.56.4
+```
+
+```sh
+#!/bin/sh
+# === /root/init.sh pada Host LAIN (scripts/lain-mika.sh) ===
+set -e
+echo 'nameserver 1.1.1.1' > /etc/resolv.conf
+echo 'nameserver 8.8.8.8' >> /etc/resolv.conf
+ip addr flush dev eth0 || true
+ip addr add 10.85.0.66/26 dev eth0 || true
+ip link set eth0 up || true
+ip route replace default via 10.85.0.65 || true
+```
+
+### Tabel Pemetaan Lengkap 25 Entitas Host pada GNS3 (CIDR)
+
+| Subnet | Entitas Host | Interface | IP Address / Prefix | Netmask | Default Gateway |
+| :---: | :--- | :---: | :--- | :--- | :--- |
+| **A1** | `JJ` / `MyuMyu` | `eth0` | `10.85.64.2/25` / `10.85.64.3/25` | `255.255.255.128` | `10.85.64.1` (`Cyberia eth1`) |
+| **A4** | `Karl` / `Lin` | `eth0` | `10.85.60.2/22` / `10.85.60.3/22` | `255.255.252.0` | `10.85.60.1` (`Psyche eth1`) |
+| **A5** | `Juri` | `eth0` | `10.85.48.2/26` | `255.255.255.192` | `10.85.48.1` (`Copland eth1`) |
+| **A6** | `Masayuki` | `eth0` | `10.85.50.2/23` | `255.255.254.0` | `10.85.50.1` (`Copland eth2`) |
+| **A7** | `Akashic` | `eth0` | `10.85.40.2/29` | `255.255.255.248` | `10.85.40.1` (`Schumann eth1`) |
+| **A9** | `Omnipresence` / `Denpa` | `eth0` | `10.85.36.2/22` / `10.85.36.3/22` | `255.255.252.0` | `10.85.36.1` (`Accela eth1`) |
+| **A11** | `Alice` / `Reika` | `eth0` | `10.85.16.2/24` / `10.85.16.3/24` | `255.255.255.0` | `10.85.16.1` (`Navi eth1`) |
+| **A12** | `Taro` | `eth0` | `10.85.17.2/26` | `255.255.255.192` | `10.85.17.1` (`Navi eth2`) |
+| **A13** | `Yasuo` / `Miho` / `Kuma` | `eth0` | `10.85.19.2` / `.3` / `.4` (`/24`) | `255.255.255.0` | `10.85.19.1` (`Navi eth3`) |
+| **A15** | `Collective` / `Ghost` | `eth0` | `10.85.14.2/23` / `10.85.14.3/23` | `255.255.254.0` | `10.85.14.1` (`Tachibana eth1`) |
+| **A17** | `Lilith` / `Specter` | `eth0` | `10.85.8.130/25` / `10.85.8.131/25` | `255.255.255.128` | `10.85.8.129` (`Deus eth1`) |
+| **A19** | `Chisa` / `Hodgeson` | `eth0` | `10.85.1.194/26` / `10.85.1.195/26` | `255.255.255.192` | `10.85.1.193` (`Protocol7 eth1`) |
+| **A21** | `Eiri` | `eth0` | `10.85.1.10/29` | `255.255.255.248` | `10.85.1.9` (`Knights eth1`) |
+| **A23** | `Semi` | `eth0` | `10.85.0.162/27` | `255.255.255.224` | `10.85.0.161` (`Phantoma eth1`) |
+| **A25** | `Lain` / `Mika` | `eth0` | `10.85.0.66/26` / `10.85.0.67/26` | `255.255.255.192` | `10.85.0.65` (`Shibuya eth1`) |
+
+---
+
+## Step 6: Desain Hierarchical Route Aggregation CIDR & Evaluasi Efisiensi Routing (VLSM vs CIDR)
+
+### Menurunkan Tabel Routing GNS3 Langsung dari Simpul Sheet `Penggabungan - CIDR`
+Keunggulan utama penyusunan alamat topologis pada Step 4 adalah setiap cabang di bawah sebuah router bersesuaian langsung dengan **satu simpul induk pada Sheet 3 (`Penggabungan - CIDR`)**. Dengan demikian, tabel routing statis di GNS3 diturunkan secara langsung dari pohon CIDR tanpa perlu merinci subnet satu per satu:
+
+1. **Pada `Cyberia` $\to$ Simpul `G1` (`10.85.0.0/18`)**:
+   Seluruh 23 subnet internal di bawah `Wired` terangkum sempurna dalam simpul **`G1` (`10.85.0.0/18`)**, sehingga `Cyberia` hanya memerlukan **1 baris rute statis** `10.85.0.0/18 via 10.85.64.130`.
+2. **Pada Hub `Wired` $\to$ Simpul `C3`, `E1`, `A4`, `B10`, dan `C4`**:
+   - Menuju **`Navi`** (`10.85.18.2`): empat segmen `A10`–`A13` diwakili utuh oleh simpul **`C3` (`10.85.16.0/22`)**.
+   - Menuju **`Tachibana`** (`10.85.12.2`): dua belas segmen berantai `A14`–`A25` diwakili utuh oleh **1 baris simpul `E1` (`10.85.0.0/20`)**.
+   - Menuju **`Psyche`** (`10.85.56.2`), **`Copland`** (`10.85.56.3`), dan **`Schumann`** (`10.85.56.4`) melalui `Switch2`: masing-masing cukup 1 baris rute agregat **`A4` (`10.85.60.0/22`)**, **`B10` (`10.85.48.0/21`, memayungi `10.85.48.0/22`)**, serta **`C4` (`10.85.32.0/20`)**.
+3. **Sepanjang Rantai Dalam (`Tachibana` $\to$ `Phantoma`)**:
+   Setiap router di rantai dalam meneruskan paket ke atas melalui `default` route dan meneruskan paket ke bawah menggunakan simpul agregat anak di bawahnya:
+   - **`Tachibana`** ke `Deus` (`10.85.8.2`): `10.85.0.0/21` (memayungi `D1`) + LAN `Deus` `10.85.8.128/25` (`A17`).
+   - **`Deus`** ke `Protocol7` (`10.85.1.130`): **1 baris simpul `D1` (`10.85.0.0/23`)** yang merangkum 4 router sekaligus (`Protocol7`, `Knights`, `Phantoma`, `Shibuya`).
+   - **`Protocol7`** ke `Knights` (`10.85.1.2`): simpul **`C1` (`10.85.0.0/24`)** + LAN `Knights` `10.85.1.8/29` (`A21`).
+   - **`Knights`** ke `Phantoma` (`10.85.0.130`): **1 baris simpul `C1` (`10.85.0.0/24`)**.
+   - **`Phantoma`** ke `Shibuya` (`10.85.0.2`): **1 baris `A25` (`10.85.0.64/26`)**.
+4. **Peran *Longest Prefix Match (LPM)* terhadap Link Transit yang Berada di Dalam Blok Agregat**:
+   Perhatikan bahwa pada `Wired`, rute agregat ke `Navi` adalah `10.85.16.0/22`, padahal link P2P `Wired–Navi` sendiri adalah `A10 = 10.85.18.0/30` yang secara matematis berada di dalam `10.85.16.0/22` (hal serupa terjadi pada `A14 = 10.85.12.0/30` di dalam `E1 = 10.85.0.0/20`). Pada kernel Linux maupun router standar, rute *Connected* `/30` memiliki prefix jauh lebih panjang daripada rute agregat `/22` atau `/20` ($30 > 22 > 20$), sehingga *Longest Prefix Match* menjamin paket menuju antarmuka lokal dan *next-hop* selalu keluar langsung melalui interface fisik tanpa pernah memicu *routing loop*.
+
+### Tabel Pemetaan Lengkap 13 Router pada GNS3 (CIDR)
+
+| Router | Antarmuka & Alamat IP | Entri Static Route (`ip route`) | Simpul Pohon CIDR |
+| :--- | :--- | :--- | :--- |
+| **Cyberia** | `eth0`: `DHCP` (`NAT1` + `MASQUERADE`)<br>`eth1`: `10.85.64.1/25` (`A1`)<br>`eth2`: `10.85.64.129/30` (`A2`) | `10.85.0.0/18 via 10.85.64.130` | `G1` |
+| **Wired** | `eth0`: `10.85.64.130/30` (`A2`)<br>`eth1`: `10.85.56.1/29` (`A3`)<br>`eth2`: `10.85.18.1/30` (`A10`)<br>`eth3`: `10.85.12.1/30` (`A14`) | `default via 10.85.64.129`<br>`10.85.16.0/22 via 10.85.18.2`<br>`10.85.0.0/20 via 10.85.12.2`<br>`10.85.60.0/22 via 10.85.56.2`<br>`10.85.48.0/21 via 10.85.56.3`<br>`10.85.32.0/20 via 10.85.56.4` | Upstream `Cyberia`<br>`C3` (`Navi`)<br>`E1` (`Tachibana`–`Shibuya`)<br>`A4` (`Psyche`)<br>`B10` (`Copland`)<br>`C4` (`Schumann`+`Accela`) |
+| **Psyche** | `eth0`: `10.85.56.2/29` (`A3`)<br>`eth1`: `10.85.60.1/22` (`A4`) | `default via 10.85.56.1` | Leaf Router |
+| **Copland** | `eth0`: `10.85.56.3/29` (`A3`)<br>`eth1`: `10.85.48.1/26` (`A5`)<br>`eth2`: `10.85.50.1/23` (`A6`) | `default via 10.85.56.1` | Leaf Router |
+| **Schumann** | `eth0`: `10.85.56.4/29` (`A3`)<br>`eth1`: `10.85.40.1/29` (`A7`)<br>`eth2`: `10.85.32.1/30` (`A8`) | `default via 10.85.56.1`<br>`10.85.36.0/22 via 10.85.32.2` | Upstream `Wired`<br>`A9` (`Accela`) |
+| **Accela** | `eth0`: `10.85.32.2/30` (`A8`)<br>`eth1`: `10.85.36.1/22` (`A9`) | `default via 10.85.32.1` | Leaf Router |
+| **Navi** | `eth0`: `10.85.18.2/30` (`A10`)<br>`eth1`: `10.85.16.1/24` (`A11`)<br>`eth2`: `10.85.17.1/26` (`A12`)<br>`eth3`: `10.85.19.1/24` (`A13`) | `default via 10.85.18.1` | Leaf Router |
+| **Tachibana** | `eth0`: `10.85.12.2/30` (`A14`)<br>`eth1`: `10.85.14.1/23` (`A15`)<br>`eth2`: `10.85.8.1/30` (`A16`) | `default via 10.85.12.1`<br>`10.85.0.0/21 via 10.85.8.2`<br>`10.85.8.128/25 via 10.85.8.2` | Upstream `Wired`<br>`D1` (`Protocol7`–`Shibuya`)<br>`A17` (`Deus` LAN) |
+| **Deus** | `eth0`: `10.85.8.2/30` (`A16`)<br>`eth1`: `10.85.8.129/25` (`A17`)<br>`eth2`: `10.85.1.129/30` (`A18`) | `default via 10.85.8.1`<br>`10.85.0.0/23 via 10.85.1.130` | Upstream `Tachibana`<br>`D1` (`Protocol7`–`Shibuya`) |
+| **Protocol7** | `eth0`: `10.85.1.130/30` (`A18`)<br>`eth1`: `10.85.1.193/26` (`A19`)<br>`eth2`: `10.85.1.1/30` (`A20`) | `default via 10.85.1.129`<br>`10.85.0.0/24 via 10.85.1.2`<br>`10.85.1.8/29 via 10.85.1.2` | Upstream `Deus`<br>`C1` (`Phantoma`+`Shibuya`)<br>`A21` (`Knights` LAN) |
+| **Knights** | `eth0`: `10.85.1.2/30` (`A20`)<br>`eth1`: `10.85.1.9/29` (`A21`)<br>`eth2`: `10.85.0.129/30` (`A22`) | `default via 10.85.1.1`<br>`10.85.0.0/24 via 10.85.0.130` | Upstream `Protocol7`<br>`C1` (`Phantoma`+`Shibuya`) |
+| **Phantoma** | `eth0`: `10.85.0.130/30` (`A22`)<br>`eth1`: `10.85.0.161/27` (`A23`)<br>`eth2`: `10.85.0.1/30` (`A24`) | `default via 10.85.0.129`<br>`10.85.0.64/26 via 10.85.0.2` | Upstream `Knights`<br>`A25` (`Shibuya` LAN) |
+| **Shibuya** | `eth0`: `10.85.0.2/30` (`A24`)<br>`eth1`: `10.85.0.65/26` (`A25`) | `default via 10.85.0.1` | Leaf Router |
+
+### Evaluasi Komparatif: VLSM vs CIDR pada Topologi *The Wired Expansion*
+
+| Parameter Pembanding | Implementasi VLSM (CPT) | Implementasi CIDR / Supernetting (GNS3) | Analisis Teknis |
+| :--- | :---: | :---: | :--- |
+| **Rentang Alamat Induk Terpakai** | `10.85.0.0/19` (`4.188` IP dipesan, kompak di `10.85.0.0`–`10.85.16.91`) | `10.85.0.0/17` (`32.768` ruang blok pohon, s.d. `10.85.64.131`) | **VLSM unggul dalam penghematan ruang IP** karena mengurutkan blok terbesar ke terkecil tanpa jeda biner antar-cabang. |
+| **Jumlah Static Route di `Wired`** | **18 baris** | **6 baris** | **CIDR memangkas 66,7% entri rute** pada router hub utama (`1` default + `5` rute cabang agregat). |
+| **Jumlah Static Route di `Tachibana` / `Deus` / `Protocol7` / `Knights`** | `9` / `7` / `6` / `4` baris | **`3` / `2` / `3` / `2` baris** | Rantai 6 router yang terpecah di VLSM berhasil diringkas menjadi blok tunggal `/20` $\to$ `/23` $\to$ `/24` pada CIDR. |
+| **Total Entri Static Route (13 Router)** | **52 entri** | **25 entri** | **CIDR menghemat 51,9% total tabel routing**, mempercepat *lookup* forwarding dan meminimalkan risiko salah ketik rute. |
+| **Isolasi Perubahan Topologi Cabang** | Rendah (penambahan subnet baru di `Shibuya` harus didaftarkan ke 7 router hulu) | **Tinggi** (selama berada di dalam blok induk cabang, router hulu tidak perlu mengubah tabel routing) | Desain hierarkis CIDR sangat ideal untuk skalabilitas jaringan *backbone* dan ISP. |
+
+---
+
+## Step 7: Pengujian & Pembuktian Konektivitas End-to-End pada GNS3
+
+Pengujian pada GNS3 dilakukan melalui tiga tahapan verifikasi untuk membuktikan persistensi skrip node, berfungsinya *Source NAT* dan *Hierarchical Route Aggregation*, serta keterjangkauan dua arah (*bidirectional reachability*) dari lapisan terdalam hingga jaringan internet publik.
+
+### 1. Verifikasi Persistensi, IPv4 Forwarding, Source NAT, & Rute Supernet pada `Cyberia`
+Pemeriksaan dijalankan pada konsol router gerbang utama **`Cyberia`**:
+
+```sh
+ls -la /root
+cat /root/init.sh
+ip -4 addr show
+sysctl net.ipv4.ip_forward
+iptables -t nat -L POSTROUTING -n -v
+ip route
+```
+
+**Hasil Kunci yang Teramati:**
+```text
+net.ipv4.ip_forward = 1
+
+Chain POSTROUTING (policy ACCEPT ...)
+ pkts bytes target      prot opt in   out   source       destination
+   ..   ... MASQUERADE  all  --  *    eth0  0.0.0.0/0    0.0.0.0/0
+
+default via 192.168.122.1 dev eth0
+10.85.0.0/18 via 10.85.64.130 dev eth2
+10.85.64.0/25 dev eth1 proto kernel scope link src 10.85.64.1
+10.85.64.128/30 dev eth2 proto kernel scope link src 10.85.64.129
+```
+
+**Penjelasan:**
+Berkas `/root/init.sh` terbukti tersimpan secara persisten, parameter kernel `net.ipv4.ip_forward = 1` aktif, rantai `POSTROUTING` pada tabel `nat` menerjemahkan trafik keluar pada `eth0` menuju `NAT1` dengan target `MASQUERADE`, dan `Cyberia` hanya membutuhkan satu rute agregat `10.85.0.0/18 via 10.85.64.130` (`G1`) untuk menjangkau seluruh 23 subnet di bawah `Wired`.
+
+---
+
+### 2. Verifikasi Hierarchical Route Aggregation pada Router `Wired` & `Deus`
+Pemeriksaan dijalankan pada konsol **`Wired`** (pusat percabangan 4 arah) dan **`Deus`** (tengah rantai lapisan dalam):
+
+```sh
+# Pada konsol Router Wired:
+ip -4 addr show
+ip route
+
+# Pada konsol Router Deus:
+ip -4 addr show
+ip route
+```
+
+**Hasil Kunci Tabel Routing (`ip route`):**
+```text
+# Output ip route pada Wired:
+default via 10.85.64.129 dev eth0
+10.85.0.0/20 via 10.85.12.2 dev eth3
+10.85.12.0/30 dev eth3 proto kernel scope link src 10.85.12.1
+10.85.16.0/22 via 10.85.18.2 dev eth2
+10.85.18.0/30 dev eth2 proto kernel scope link src 10.85.18.1
+10.85.32.0/20 via 10.85.56.4 dev eth1
+10.85.48.0/21 via 10.85.56.3 dev eth1
+10.85.56.0/29 dev eth1 proto kernel scope link src 10.85.56.1
+10.85.60.0/22 via 10.85.56.2 dev eth1
+10.85.64.128/30 dev eth0 proto kernel scope link src 10.85.64.130
+
+# Output ip route pada Deus:
+default via 10.85.8.1 dev eth0
+10.85.0.0/23 via 10.85.1.130 dev eth2
+10.85.1.128/30 dev eth2 proto kernel scope link src 10.85.1.129
+10.85.8.0/30 dev eth0 proto kernel scope link src 10.85.8.2
+10.85.8.128/25 dev eth1 proto kernel scope link src 10.85.8.129
+```
+
+**Penjelasan:**
+Tabel routing `Wired` merangkum kelima cabang besar menggunakan tepat lima rute blok pohon CIDR (`10.85.0.0/20`, `10.85.16.0/22`, `10.85.32.0/20`, `10.85.48.0/21`, `10.85.60.0/22`), sedangkan `Deus` merangkum empat router di bawahnya (`Protocol7` hingga `Shibuya`) hanya dengan satu entri `10.85.0.0/23 via 10.85.1.130` (`D1`).
+
+---
+
+### 3. Pengujian Konektivitas Lintas Cabang, Penelusuran 9-Hop, & Akses Internet dari `Lain` dan `Karl`
+Pengujian *end-to-end* dieksekusi dari konsol host lapisan terdalam **`Lain`** (`10.85.0.66/26` pada `Switch13` di belakang `Shibuya`) menuju seluruh zona topologi serta jaringan internet eksternal, diikuti pengujian arah balik dari **`Karl`** (`10.85.60.2/22` di belakang `Psyche`):
+
+```sh
+# === Pada Konsol Host LAIN (10.85.0.66/26) ===
+ip -4 addr show dev eth0
+ip route
+
+ping -c 3 10.85.0.65       # Gateway lokal (Shibuya eth1 - A25)
+ping -c 3 10.85.64.2       # JJ (Segmen Cyberia - A1)
+ping -c 3 10.85.60.2       # Karl (Cabang Psyche - A4)
+ping -c 3 10.85.50.2       # Masayuki (Cabang Copland - A6)
+ping -c 3 10.85.36.2       # Omnipresence (Cabang Schumann > Accela - A9)
+ping -c 3 10.85.16.2       # Alice (Cabang Navi Switch6 - A11)
+ping -c 3 10.85.19.4       # Kuma (Cabang Navi Switch8 - A13)
+ping -c 3 10.85.1.10       # Eiri (Rantai Knights - A21)
+
+traceroute -n 10.85.60.2   # Penelusuran hop lengkap dari Shibuya ke Karl
+
+ping -c 3 8.8.8.8          # Uji konektivitas Internet via NAT Cyberia
+ping -c 3 google.com       # Uji resolusi DNS & akses domain eksternal
+
+# === Pada Konsol Host KARL (10.85.60.2/22 — Uji Arah Balik) ===
+ping -c 3 10.85.0.66
+traceroute -n 10.85.0.66
+```
+
+**Urutan 9 Hop Aktual pada `traceroute -n 10.85.60.2` (dari `Lain` menuju `Karl`):**
+1. `10.85.0.65` (`Shibuya eth1` — Default Gateway `A25`)
+2. `10.85.0.1` (`Phantoma eth2` — Link `A24`)
+3. `10.85.0.129` (`Knights eth2` — Link `A22`)
+4. `10.85.1.1` (`Protocol7 eth2` — Link `A20`)
+5. `10.85.1.129` (`Deus eth2` — Link `A18`)
+6. `10.85.8.1` (`Tachibana eth2` — Link `A16`)
+7. `10.85.12.1` (`Wired eth3` — Link `A14`)
+8. `10.85.56.2` (`Psyche eth0` — Segmen `Switch2` `A3`)
+9. `10.85.60.2` (`Karl eth0` — Tujuan Akhir `A4`)
+
+**Penjelasan:**
+Seluruh pengujian `ping` menghasilkan **`0% packet loss`** baik antar-subnet terjauh (`Lain` $\leftrightarrow$ `Karl` melewati 8 router dan 9 segmen jaringan) maupun menuju `8.8.8.8` dan `google.com`. Penelusuran `traceroute -n` dari kedua arah membuktikan paket naik mengikuti rantai *default route* menuju `Wired`, lalu turun secara presisi mengikuti hirarki *route aggregation* CIDR (`E1` $\to$ `D1` $\to$ `C1` $\to$ `A25`) tanpa satu pun gejala *routing loop* ataupun kebocoran paket. Selain pengujian manual pada konsol, verifikasi otomatis seluruh 38 node Layer-3 juga tersedia melalui skrip `scripts/test_connectivity.py`.
