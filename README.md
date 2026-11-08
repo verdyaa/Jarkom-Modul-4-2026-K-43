@@ -320,3 +320,125 @@ C:\> tracert 10.85.0.2     (penelusuran 9 hop dari Shibuya menuju Karl)
 
 **Penjelasan:**
 Perintah `show ip route static` pada `Cyberia` membuktikan seluruh subnet di belakang `Wired` terjangkau hanya dengan satu rute `S 10.85.0.0/19 [1/0] via 10.85.16.58`, sedangkan `tracert 10.85.0.2` dari `Lain` membuktikan paket melintasi `10.85.15.1` (`Shibuya`) $\to$ `10.85.16.89` (`Phantoma`) $\to$ `10.85.16.85` (`Knights`) $\to$ `10.85.16.81` (`Protocol7`) $\to$ `10.85.16.77` (`Deus`) $\to$ `10.85.16.73` (`Tachibana`) $\to$ `10.85.16.69` (`Wired`) $\to$ `10.85.16.34` (`Psyche`) $\to$ `10.85.0.2` (`Karl`) tanpa adanya *routing loop*.
+
+
+---
+
+## Step 4: Metodologi Penggabungan & Pembagian IP CIDR / Supernetting (Sheet `Penggabungan - CIDR` & `Pembagian IP - CIDR`)
+
+### Soal & Prinsip Dasar CIDR
+Pada metode VLSM (Step 2), pengurutan blok murni berdasarkan ukuran populasi host menyebabkan subnet-subnet dalam satu cabang yang sama tersebar pada rentang alamat yang berjauhan (misalnya rantai `Tachibana`–`Shibuya` tersebar mulai dari `10.85.10.0/23` hingga `10.85.16.88/30`), sehingga router di hulu harus mendaftarkan banyak entri rute terpisah.
+
+Metode **CIDR (*Classless Inter-Domain Routing*) / *Supernetting*** menyelesaikan masalah tersebut dengan mengelompokkan alamat IP berdasarkan **kedekatan topologi (*topological adjacency*)** melalui dua fase berurutan:
+1. **Fase Penggabungan *Bottom-Up* (Sheet `Penggabungan - CIDR`)**: Menggabungkan pasangan subnet yang bernaung di bawah router yang sama mulai dari ujung terdalam (*leaf*) hingga menyatu di router pusat `Cyberia` (`H1`).
+2. **Fase Pembagian *Top-Down* (Sheet `Pembagian IP - CIDR`)**: Memecah blok induk hasil penggabungan (`H1`) kembali ke bawah menelusuri pohon biner menuju masing-masing subnet `A1` s.d. `A25`.
+
+---
+
+### Fase 1: Aturan Penggabungan *Bottom-Up* (Sheet 3 — `Penggabungan - CIDR`)
+Ketika dua blok jaringan anak dengan prefix $/p_1$ dan $/p_2$ digabungkan menjadi satu blok induk pada pohon biner IPv4, sebuah blok induk hanya dapat dibagi dua menjadi dua paruh berukuran identik. Agar kedua anak muat tanpa saling tumpang tindih, masing-masing paruh minimal harus sebesar blok anak yang paling lebar (yaitu prefix terkecil $\min(p_1, p_2)$), kemudian ditarik mundur $1\text{ bit}$ ke kiri untuk memayungi kedua paruh sekaligus:
+
+$$p_{\text{induk}} = \min(p_1, p_2) - 1$$
+
+Penelusuran dilakukan bertahap dari lapisan paling luar menuju akar topologi:
+- **Tahap I (`B1` s.d. `B12`)**: Menggabungkan pasangan link transit router dan LAN lokal pada masing-masing router:
+  - Contoh pada ujung rantai terdalam **`Shibuya`**: link `A24` (`/30`) digabung dengan LAN `A25` (`/26`) $\implies p_{B1} = \min(30, 26) - 1 = 26 - 1 =$ **`/25`** (`B1`).
+  - Contoh pada **`Phantoma`**: link `A22` (`/30`) + LAN `A23` (`/27`) $\implies \min(30, 27) - 1 =$ **`/26`** (`B2`).
+  - Contoh pada **`Navi`** (memiliki 4 segmen `A10`–`A13`): dipasangkan dua-dua terlebih dahulu, yaitu `A11` (`/24`) + `A12` (`/26`) $\to$ **`B7` (`/23`)** dan `A10` (`/30`) + `A13` (`/24`) $\to$ **`B8` (`/23`)**.
+- **Tahap II s.d. Tahap VI (`C` $\to$ `G1`)**: Menggabungkan hasil Tahap I secara hierarkis mengikuti alur kabel antar-router menuju `Wired`:
+  - Rantai bawah menyatu bertahap: `B1 (/25) + B2 (/26)` $\to$ **`C1` (`/24`)**; `B3 (/28) + B4 (/25)` $\to$ **`C2` (`/24`)**; `C1 + C2` $\to$ **`D1` (`/23`)**; `B5 (/24) + B6 (/22)` $\to$ **`D2` (`/21`)**; `D1 + D2` $\to$ **`E1` (`/20`)** (seluruh rantai `Tachibana`–`Shibuya`).
+  - `E1 (/20)` digabung dengan cabang `Navi` **`C3` (`/22`)** menghasilkan **`F1` (`/19`)**.
+  - Di sisi kiri (`Switch2`), cabang `Accela+Schumann` membentuk **`C4` (`/20`)** dan `Copland+Psyche` membentuk **`C5` (`/20`)**, yang menyatu menjadi **`D3` (`/19`)**.
+  - Gabungan timur-selatan `F1 (/19)` dan barat `D3 (/19)` di bawah `Wired` menghasilkan **`G1` (`/18`)**.
+- **Tahap VII (`H1`)**: Menggabungkan seluruh jaringan di bawah `Wired` (**`G1` `/18`**) dengan zona lokal `Cyberia` (**`B12` `/24`**) menghasilkan supernet tunggal satu topologi:
+  $$p_{H1} = \min(18, 24) - 1 = 17 \implies \mathbf{10.85.0.0/17}$$
+
+#### Tabel Hasil Sheet 3 (`Penggabungan - CIDR`) Beserta Blok Alamat Pohonnya
+
+| Tahap | Simpul Induk | Komponen 1 | Komponen 2 | Rumus $\min(p_1,p_2)-1$ | Prefix Akhir | Alokasi Blok Pohon (Top-Down) | Cakupan Topologi |
+| :---: | :---: | :---: | :---: | :---: | :---: | :--- | :--- |
+| **I** | **B1** | `A24` (`/30`) | `A25` (`/26`) | $\min(30,26)-1$ | **`/25`** | `10.85.0.0/25` | Segmen `Shibuya` |
+| **I** | **B2** | `A22` (`/30`) | `A23` (`/27`) | $\min(30,27)-1$ | **`/26`** | `10.85.0.128/26` | Segmen `Phantoma` |
+| **I** | **B3** | `A20` (`/30`) | `A21` (`/29`) | $\min(30,29)-1$ | **`/28`** | `10.85.1.0/28` | Segmen `Knights` |
+| **I** | **B4** | `A18` (`/30`) | `A19` (`/26`) | $\min(30,26)-1$ | **`/25`** | `10.85.1.128/25` | Segmen `Protocol7` |
+| **I** | **B5** | `A16` (`/30`) | `A17` (`/25`) | $\min(30,25)-1$ | **`/24`** | `10.85.8.0/24` | Segmen `Deus` |
+| **I** | **B6** | `A14` (`/30`) | `A15` (`/23`) | $\min(30,23)-1$ | **`/22`** | `10.85.12.0/22` | Segmen `Tachibana` |
+| **I** | **B7** | `A11` (`/24`) | `A12` (`/26`) | $\min(24,26)-1$ | **`/23`** | `10.85.16.0/23` | `Navi` (`Switch6` + `Switch7`) |
+| **I** | **B8** | `A10` (`/30`) | `A13` (`/24`) | $\min(30,24)-1$ | **`/23`** | `10.85.18.0/23` | `Navi` (Link `Wired` + `Switch8`) |
+| **I** | **B9** | `A8` (`/30`) | `A9` (`/22`) | $\min(30,22)-1$ | **`/21`** | `10.85.32.0/21` | Segmen `Accela` |
+| **I** | **B10** | `A5` (`/26`) | `A6` (`/23`) | $\min(26,23)-1$ | **`/22`** | `10.85.48.0/22` | Segmen `Copland` (`Juri` + `Masayuki`) |
+| **I** | **B11** | `A3` (`/29`) | `A4` (`/22`) | $\min(29,22)-1$ | **`/21`** | `10.85.56.0/21` | `Switch2` + Segmen `Psyche` |
+| **I** | **B12** | `A1` (`/25`) | `A2` (`/30`) | $\min(25,30)-1$ | **`/24`** | `10.85.64.0/24` | Segmen `Cyberia` + Link `Wired` |
+| **II** | **C1** | `B1` (`/25`) | `B2` (`/26`) | $\min(25,26)-1$ | **`/24`** | `10.85.0.0/24` | `Shibuya` + `Phantoma` |
+| **II** | **C2** | `B3` (`/28`) | `B4` (`/25`) | $\min(28,25)-1$ | **`/24`** | `10.85.1.0/24` | `Knights` + `Protocol7` |
+| **II** | **C3** | `B7` (`/23`) | `B8` (`/23`) | $\min(23,23)-1$ | **`/22`** | `10.85.16.0/22` | Seluruh Cabang `Navi` (`A10`–`A13`) |
+| **II** | **C4** | `B9` (`/21`) | `A7` (`/29`) | $\min(21,29)-1$ | **`/20`** | `10.85.32.0/20` | `Schumann` (`Akashic`) + `Accela` |
+| **II** | **C5** | `B10` (`/22`) | `B11` (`/21`) | $\min(22,21)-1$ | **`/20`** | `10.85.48.0/20` | `Copland` + `Switch2` + `Psyche` |
+| **III** | **D1** | `C1` (`/24`) | `C2` (`/24`) | $\min(24,24)-1$ | **`/23`** | `10.85.0.0/23` | `Protocol7` s.d. `Shibuya` (`A18`–`A25`) |
+| **III** | **D2** | `B5` (`/24`) | `B6` (`/22`) | $\min(24,22)-1$ | **`/21`** | `10.85.8.0/21` | `Tachibana` + `Deus` (`A14`–`A17`) |
+| **III** | **D3** | `C4` (`/20`) | `C5` (`/20`) | $\min(20,20)-1$ | **`/19`** | `10.85.32.0/19` | Seluruh Zona Barat `Switch2` (`A3`–`A9`) |
+| **IV** | **E1** | `D1` (`/23`) | `D2` (`/21`) | $\min(23,21)-1$ | **`/20`** | `10.85.0.0/20` | Seluruh Rantai `Tachibana`–`Shibuya` |
+| **V** | **F1** | `E1` (`/20`) | `C3` (`/22`) | $\min(20,22)-1$ | **`/19`** | `10.85.0.0/19` | Rantai `Tachibana` + Cabang `Navi` |
+| **VI** | **G1** | `F1` (`/19`) | `D3` (`/19`) | $\min(19,19)-1$ | **`/18`** | `10.85.0.0/18` | Seluruh Jaringan di Bawah `Wired` |
+| **VII** | **H1** | `G1` (`/18`) | `B12` (`/24`) | $\min(18,24)-1$ | **`/17`** | **`10.85.0.0/17`** | **Supernet Seluruh Topologi** |
+
+---
+
+### Fase 2: Aturan Pembagian *Top-Down* Pohon Biner (Sheet 4 — `Pembagian IP - CIDR`)
+Setelah akar pohon ditemukan pada **`H1 = 10.85.0.0/17`**, pengisian alamat IP pada Sheet `Pembagian IP - CIDR` dilakukan dengan memecah blok dari atas ke bawah (*top-down binary splitting*) mengikuti pasangan komponen pada tabel penggabungan:
+
+1. Setiap simpul induk berprefix $/m$ dipecah pada bit ke-$(m+1)$ menjadi dua paruh berukuran $/(m+1)$:
+   - **Paruh Pertama / Kiri (`bit = 0`, Komponen 1)**: Mewarisi **Network ID yang sama persis** dengan induknya.
+   - **Paruh Kedua / Kanan (`bit = 1`, Komponen 2)**: Network ID induk ditambah ukuran setengah blok:
+     - Jika $17 < m+1 \le 24$, oktet ke-3 bertambah sebesar $2^{24 - (m+1)}$.
+     - Jika $m+1 > 24$, oktet ke-4 bertambah sebesar $2^{32 - (m+1)}$.
+2. Apabila target prefix komponen anak lebih spesifik daripada $/(m+1)$ (yakni $p_{\text{anak}} > m + 1$), maka komponen anak tersebut langsung menempati **sub-blok paling awal (`offset +0`)** dari paruhnya menggunakan netmask $/p_{\text{anak}}$, sedangkan sisa ruang pada paruh tersebut dibiarkan tidak terpakai (*reserved slack*) agar batas agregasi biner tetap murni dan tidak bocor ke cabang lain.
+
+**Contoh Penelusuran Konkret dari Akar `H1` ke Daun:**
+- **Penurunan `A1` & `A2` (Zona `Cyberia`)**:
+  - `H1` (`10.85.0.0/17`) dipecah menjadi dua blok `/18` (langkah oktet ke-3 $= 2^{24-18} = 64$):
+    - Paruh kiri (`bit 0`): **`G1 = 10.85.0.0/18`**.
+    - Paruh kanan (`bit 1`): `10.85.64.0/18` $\to$ karena Komponen 2 (`B12`) membutuhkan `/24`, diambil awal paruh kanan **`B12 = 10.85.64.0/24`**.
+  - `B12` (`10.85.64.0/24`) dipecah menjadi dua blok `/25` (langkah oktet ke-4 $= 2^{32-25} = 128$):
+    - Paruh kiri (`bit 0`): **`A1 = 10.85.64.0/25`** (`Range: 10.85.64.1 - 10.85.64.126`).
+    - Paruh kanan (`bit 1`): `10.85.64.128/25` $\to$ karena `A2` membutuhkan `/30`, diambil awal paruh kanan **`A2 = 10.85.64.128/30`** (`Range: 10.85.64.129 - 10.85.64.130`).
+- **Penurunan `A24` & `A25` (Ujung Terdalam `Shibuya`)**:
+  - Mengambil cabang kiri (`bit 0`) secara beruntun dari `H1` $\to$ `G1` (`10.85.0.0/18`) $\to$ `F1` (`10.85.0.0/19`) $\to$ `E1` (`10.85.0.0/20`) $\to$ paruh kiri `/21` memberikan **`D1 = 10.85.0.0/23`** (sedangkan paruh kanan `/21` menjadi **`D2 = 10.85.8.0/21`**).
+  - `D1` (`10.85.0.0/23`) dipecah menjadi **`C1 = 10.85.0.0/24`** (kiri) dan **`C2 = 10.85.1.0/24`** (kanan).
+  - `C1` (`10.85.0.0/24`) dipecah menjadi **`B1 = 10.85.0.0/25`** (kiri) dan paruh kanan `10.85.0.128/25` yang diambil awalnya untuk **`B2 = 10.85.0.128/26`**.
+  - `B1` (`10.85.0.0/25`) dipecah menjadi dua blok `/26` (langkah oktet ke-4 $= 64$):
+    - Paruh kiri (`0..63`): diambil awal blok untuk **`A24 = 10.85.0.0/30`** (`Range: 10.85.0.1 - 10.85.0.2`).
+    - Paruh kanan (`64..127`): utuh menjadi **`A25 = 10.85.0.64/26`** (`Range: 10.85.0.65 - 10.85.0.126`).
+
+![Pohon Pembagian IP CIDR](./Images/pohon-cidr.png)
+*Gambar 4.1: Pohon biner penggabungan bottom-up dan pembagian top-down CIDR `10.85.0.0/17` (`H1` hingga `A1`–`A25`).*
+
+### Tabel Hasil Sheet 4 (`Pembagian IP - CIDR`)
+
+| Subnet | Segmen Topologi | Network ID | Netmask | Prefix | Broadcast | Range Usable IP |
+| :---: | :--- | :--- | :--- | :---: | :--- | :--- |
+| **A1** | `Cyberia — Switch1` | `10.85.64.0` | `255.255.255.128` | `/25` | `10.85.64.127` | `10.85.64.1 - 10.85.64.126` |
+| **A2** | `Cyberia — Wired` | `10.85.64.128` | `255.255.255.252` | `/30` | `10.85.64.131` | `10.85.64.129 - 10.85.64.130` |
+| **A3** | `Wired — Switch2 (Psyche, Copland, Schumann)` | `10.85.56.0` | `255.255.255.248` | `/29` | `10.85.56.7` | `10.85.56.1 - 10.85.56.6` |
+| **A4** | `Psyche — Switch3 (Karl, Lin)` | `10.85.60.0` | `255.255.252.0` | `/22` | `10.85.63.255` | `10.85.60.1 - 10.85.63.254` |
+| **A5** | `Copland — Juri` | `10.85.48.0` | `255.255.255.192` | `/26` | `10.85.48.63` | `10.85.48.1 - 10.85.48.62` |
+| **A6** | `Copland — Switch4 (Masayuki)` | `10.85.50.0` | `255.255.254.0` | `/23` | `10.85.51.255` | `10.85.50.1 - 10.85.51.254` |
+| **A7** | `Schumann — Akashic` | `10.85.40.0` | `255.255.255.248` | `/29` | `10.85.40.7` | `10.85.40.1 - 10.85.40.6` |
+| **A8** | `Schumann — Accela` | `10.85.32.0` | `255.255.255.252` | `/30` | `10.85.32.3` | `10.85.32.1 - 10.85.32.2` |
+| **A9** | `Accela — Switch5 (Omnipresence, Denpa)` | `10.85.36.0` | `255.255.252.0` | `/22` | `10.85.39.255` | `10.85.36.1 - 10.85.39.254` |
+| **A10** | `Wired — Navi` | `10.85.18.0` | `255.255.255.252` | `/30` | `10.85.18.3` | `10.85.18.1 - 10.85.18.2` |
+| **A11** | `Navi — Switch6 (Alice, Reika)` | `10.85.16.0` | `255.255.255.0` | `/24` | `10.85.16.255` | `10.85.16.1 - 10.85.16.254` |
+| **A12** | `Navi — Switch7 (Taro)` | `10.85.17.0` | `255.255.255.192` | `/26` | `10.85.17.63` | `10.85.17.1 - 10.85.17.62` |
+| **A13** | `Navi — Switch8 (Yasuo, Miho, Kuma)` | `10.85.19.0` | `255.255.255.0` | `/24` | `10.85.19.255` | `10.85.19.1 - 10.85.19.254` |
+| **A14** | `Wired — Tachibana` | `10.85.12.0` | `255.255.255.252` | `/30` | `10.85.12.3` | `10.85.12.1 - 10.85.12.2` |
+| **A15** | `Tachibana — Switch9 (Collective, Ghost)` | `10.85.14.0` | `255.255.254.0` | `/23` | `10.85.15.255` | `10.85.14.1 - 10.85.15.254` |
+| **A16** | `Tachibana — Deus` | `10.85.8.0` | `255.255.255.252` | `/30` | `10.85.8.3` | `10.85.8.1 - 10.85.8.2` |
+| **A17** | `Deus — Switch10 (Lilith, Specter)` | `10.85.8.128` | `255.255.255.128` | `/25` | `10.85.8.255` | `10.85.8.129 - 10.85.8.254` |
+| **A18** | `Deus — Protocol7` | `10.85.1.128` | `255.255.255.252` | `/30` | `10.85.1.131` | `10.85.1.129 - 10.85.1.130` |
+| **A19** | `Protocol7 — Switch11 (Chisa, Hodgeson)` | `10.85.1.192` | `255.255.255.192` | `/26` | `10.85.1.255` | `10.85.1.193 - 10.85.1.254` |
+| **A20** | `Protocol7 — Knights` | `10.85.1.0` | `255.255.255.252` | `/30` | `10.85.1.3` | `10.85.1.1 - 10.85.1.2` |
+| **A21** | `Knights — Eiri` | `10.85.1.8` | `255.255.255.248` | `/29` | `10.85.1.15` | `10.85.1.9 - 10.85.1.14` |
+| **A22** | `Knights — Phantoma` | `10.85.0.128` | `255.255.255.252` | `/30` | `10.85.0.131` | `10.85.0.129 - 10.85.0.130` |
+| **A23** | `Phantoma — Switch12 (Semi)` | `10.85.0.160` | `255.255.255.224` | `/27` | `10.85.0.191` | `10.85.0.161 - 10.85.0.190` |
+| **A24** | `Phantoma — Shibuya` | `10.85.0.0` | `255.255.255.252` | `/30` | `10.85.0.3` | `10.85.0.1 - 10.85.0.2` |
+| **A25** | `Shibuya — Switch13 (Lain, Mika)` | `10.85.0.64` | `255.255.255.192` | `/26` | `10.85.0.127` | `10.85.0.65 - 10.85.0.126` |
